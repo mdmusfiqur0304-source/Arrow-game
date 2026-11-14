@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny all unmatched paths by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidSkinId(skinId) {
+      return skinId in ['cyan_pulse', 'emerald_volt', 'solar_amber', 'crimson_nova', 'prism_vector'];
+    }
+
+    function isValidDirection(dir) {
+      return dir in ['UP', 'DOWN', 'LEFT', 'RIGHT', 'UP_RIGHT', 'UP_LEFT', 'DOWN_RIGHT', 'DOWN_LEFT'];
+    }
+
+    function isValidActionType(action) {
+      return action in [
+        'NAV_ARENA',
+        'NAV_SHORTCUTS',
+        'NAV_VAULT',
+        'QUICK_RESTART',
+        'OPEN_SETTINGS',
+        'OPEN_BROWSER',
+        'SHARE_STATS',
+        'TOGGLE_HAPTICS'
+      ];
+    }
+
+    function isValidArrowStyle(style) {
+      return style in ['STRAIGHT', 'ARC', 'BOLT', 'SPLIT'];
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.gems is int && data.gems >= 0 && data.gems <= 1000000 &&
+             data.completedRuns is int && data.completedRuns >= 0 && data.completedRuns <= 1000000 &&
+             data.totalHits is int && data.totalHits >= 0 && data.totalHits <= 10000000 &&
+             data.activeSkinId is string && data.activeSkinId.size() <= 40 && isValidSkinId(data.activeSkinId) &&
+             data.unlockedSkins is list && data.unlockedSkins.size() >= 1 && data.unlockedSkins.size() <= 10 &&
+             data.unlockedSkins[0] is string &&
+             data.hapticsEnabled is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidGestureShortcut(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.direction is string && data.direction.size() <= 20 && isValidDirection(data.direction) &&
+             data.label is string && data.label.size() >= 1 && data.label.size() <= 40 &&
+             data.actionType is string && data.actionType.size() <= 30 && isValidActionType(data.actionType) &&
+             data.arrowStyle is string && data.arrowStyle.size() <= 20 && isValidArrowStyle(data.arrowStyle) &&
+             data.enabled is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCompletedRun(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.targetsCleared is int && data.targetsCleared >= 1 && data.targetsCleared <= 50 &&
+             data.accuracyPercent is int && data.accuracyPercent >= 0 && data.accuracyPercent <= 100 &&
+             data.gemsEarned is int && data.gemsEarned == 5 &&
+             data.durationMs is int && data.durationMs >= 1 && data.durationMs <= 3600000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // User profile & gem wallet
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'gems', 'completedRuns',
+                         'totalHits', 'activeSkinId', 'unlockedSkins',
+                         'hapticsEnabled', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'gems', 'completedRuns',
+                         'totalHits', 'activeSkinId', 'unlockedSkins',
+                         'hapticsEnabled', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().gems == 0 &&
+                       incoming().completedRuns == 0 &&
+                       incoming().totalHits == 0 &&
+                       incoming().activeSkinId == 'cyan_pulse' &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) && (
+                         // Action 1: Complete a run (+5 gems, +1 completedRun)
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['gems', 'completedRuns', 'totalHits', 'updatedAt']) &&
+                           incoming().gems == existing().gems + 5 &&
+                           incoming().completedRuns == existing().completedRuns + 1 &&
+                           incoming().totalHits >= existing().totalHits
+                         ) ||
+                         // Action 2: Unlock a skin (spend gems, add to unlockedSkins, optionally equip)
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['gems', 'unlockedSkins', 'activeSkinId', 'updatedAt']) &&
+                           incoming().gems < existing().gems &&
+                           incoming().unlockedSkins.size() >= existing().unlockedSkins.size()
+                         ) ||
+                         // Action 3: Equip skin or update preferences
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['activeSkinId', 'hapticsEnabled', 'displayName', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if false;
+
+      // Customizable swipeable gesture shortcuts
+      match /shortcuts/{shortcutId} {
+        allow get: if isOwner(userId) && isValidId(shortcutId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(shortcutId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'direction', 'label', 'actionType',
+                           'arrowStyle', 'enabled', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'direction', 'label', 'actionType',
+                           'arrowStyle', 'enabled', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().userId == request.auth.uid &&
+                         isValidGestureShortcut(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(shortcutId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().direction == existing().direction &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidGestureShortcut(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'label', 'actionType', 'arrowStyle', 'enabled', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(shortcutId);
+      }
+
+      // Append-only completed runs ledger (+5 gems each)
+      match /runs/{runId} {
+        allow get: if isOwner(userId) && isValidId(runId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(runId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'targetsCleared', 'accuracyPercent',
+                           'gemsEarned', 'durationMs', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'targetsCleared', 'accuracyPercent',
+                           'gemsEarned', 'durationMs', 'createdAt'
+                         ]) &&
+                         incoming().userId == request.auth.uid &&
+                         isValidCompletedRun(incoming());
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,179 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated player profile storing durable gem balance, completed run count, and equipped arrow skin.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Player display name."
+        },
+        "gems": {
+          "type": "integer",
+          "description": "Current gem balance (+5 awarded on every completed run)."
+        },
+        "completedRuns": {
+          "type": "integer",
+          "description": "Total number of completed runs (no level system)."
+        },
+        "totalHits": {
+          "type": "integer",
+          "description": "Total target gates hit across all runs."
+        },
+        "activeSkinId": {
+          "type": "string",
+          "description": "Currently equipped arrow skin ID."
+        },
+        "unlockedSkins": {
+          "type": "array",
+          "description": "List of unlocked arrow skin IDs (max 10)."
+        },
+        "hapticsEnabled": {
+          "type": "boolean",
+          "description": "Whether tactile vibration feedback is enabled."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "gems",
+        "completedRuns",
+        "totalHits",
+        "activeSkinId",
+        "unlockedSkins",
+        "hapticsEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GestureShortcut": {
+      "title": "GestureShortcut",
+      "description": "Customizable swipeable directional gesture shortcut bound to an in-app navigation or quick action.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["UP", "DOWN", "LEFT", "RIGHT", "UP_RIGHT", "UP_LEFT", "DOWN_RIGHT", "DOWN_LEFT"],
+          "description": "Swipe gesture direction."
+        },
+        "label": {
+          "type": "string",
+          "description": "User-customizable shortcut label."
+        },
+        "actionType": {
+          "type": "string",
+          "enum": ["NAV_ARENA", "NAV_SHORTCUTS", "NAV_VAULT", "QUICK_RESTART", "OPEN_SETTINGS", "OPEN_BROWSER", "SHARE_STATS", "TOGGLE_HAPTICS"],
+          "description": "Bound navigation or utility action."
+        },
+        "arrowStyle": {
+          "type": "string",
+          "enum": ["STRAIGHT", "ARC", "BOLT", "SPLIT"],
+          "description": "Visual arrow launch style for this direction."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this swipe shortcut is active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "direction",
+        "label",
+        "actionType",
+        "arrowStyle",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CompletedRun": {
+      "title": "CompletedRun",
+      "description": "Immutable record of a completed arrow launcher run awarding 5 gems.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "targetsCleared": {
+          "type": "integer",
+          "description": "Number of target gates cleared in the run."
+        },
+        "accuracyPercent": {
+          "type": "integer",
+          "description": "Swipe accuracy percentage for the run."
+        },
+        "gemsEarned": {
+          "type": "integer",
+          "description": "Gems earned (always 5 per completed run)."
+        },
+        "durationMs": {
+          "type": "integer",
+          "description": "Run completion duration in milliseconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server completion timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "targetsCleared",
+        "accuracyPercent",
+        "gemsEarned",
+        "durationMs",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Player profile and gem wallet scoped to authenticated user."
+    },
+    "/users/{userId}/shortcuts/{shortcutId}": {
+      "schema": {
+        "$ref": "#/entities/GestureShortcut"
+      },
+      "description": "Customizable swipeable gesture shortcuts owned by the user."
+    },
+    "/users/{userId}/runs/{runId}": {
+      "schema": {
+        "$ref": "#/entities/CompletedRun"
+      },
+      "description": "Completed arrow launcher runs (+5 gems each)."
+    }
+  }
+}

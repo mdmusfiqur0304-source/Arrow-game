@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Arrow Swipe</string>
+    <string name="tagline_launcher">Swipeable Gesture Shortcuts &amp; Kinetic Arrow Arena</string>
+    <string name="online_only_badge">ONLINE REQUIRED</string>
+    <string name="offline_title">Internet Connection Required</string>
+    <string name="offline_subtitle">Arrow Swipe cannot be played offline. Connect to Wi-Fi or mobile data to launch arrows, sync shortcuts, and earn +5 gems per run.</string>
+    <string name="retry_connection">Verify Connection</string>
+    <string name="sign_in_cta">Sign in with Google</string>
+    <string name="sign_in_subtitle">Sync your custom swipeable gesture shortcuts and gem balance across sessions. +5 gems awarded on every completed run.</string>
+    <string name="nav_arena">Arena</string>
+    <string name="nav_shortcuts">Shortcuts</string>
+    <string name="nav_vault">Vault</string>
+    <string name="no_level_badge">OPEN RUN • NO LEVELS</string>
+    <string name="reward_per_run">+5 GEMS / RUN</string>
+</resources>

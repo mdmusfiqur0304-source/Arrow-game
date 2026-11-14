@@ -1,0 +1,6 @@
+{
+  "name": "Arrow Swipe",
+  "description": "An online-only arrow launcher game with customizable swipeable gesture shortcuts and gem rewards after every completed run.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
